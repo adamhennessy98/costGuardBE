@@ -1,0 +1,31 @@
+[project]
+name = "costguard-backend"
+version = "0.1.0"
+description = "CostGuard backend FastAPI service"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "CostGuard", email = "dev@costguard.example" }]
+dependencies = [
+    "fastapi>=0.104.1,<1.0",
+    "uvicorn[standard]>=0.23.2,<1.0",
+    "sqlalchemy>=2.0.23,<3.0",
+    "alembic>=1.12.1,<2.0",
+    "pydantic>=2.4.2,<3.0",
+    "pydantic-settings>=2.0.3,<3.0",
+    "python-dotenv>=1.0.0,<2.0",
+    "psycopg[binary]>=3.1.12,<4.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.2,<8.0",
+    "httpx>=0.25.0,<1.0",
+    "ruff>=0.1.6,<0.2.0"
+]
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

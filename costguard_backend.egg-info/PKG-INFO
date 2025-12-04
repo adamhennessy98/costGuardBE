@@ -1,0 +1,40 @@
+Metadata-Version: 2.4
+Name: costguard-backend
+Version: 0.1.0
+Summary: CostGuard backend FastAPI service
+Author-email: CostGuard <dev@costguard.example>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi<1.0,>=0.104.1
+Requires-Dist: uvicorn[standard]<1.0,>=0.23.2
+Requires-Dist: sqlalchemy<3.0,>=2.0.23
+Requires-Dist: alembic<2.0,>=1.12.1
+Requires-Dist: pydantic<3.0,>=2.4.2
+Requires-Dist: pydantic-settings<3.0,>=2.0.3
+Requires-Dist: python-dotenv<2.0,>=1.0.0
+Requires-Dist: psycopg[binary]<4.0,>=3.1.12
+Provides-Extra: dev
+Requires-Dist: pytest<8.0,>=7.4.2; extra == "dev"
+Requires-Dist: httpx<1.0,>=0.25.0; extra == "dev"
+Requires-Dist: ruff<0.2.0,>=0.1.6; extra == "dev"
+
+# CostGuard Backend
+
+FastAPI service with SQLAlchemy ORM and Alembic migrations.
+
+## Getting Started
+
+1. Create and activate a virtual environment if needed.
+2. Install dependencies:
+   ```bash
+   pip install -e .[dev]
+   ```
+3. Copy `.env.example` to `.env` and update settings.
+4. Run the database migrations:
+   ```bash
+   alembic upgrade head
+   ```
+5. Start the development server:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
