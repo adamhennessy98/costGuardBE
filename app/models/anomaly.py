@@ -18,7 +18,12 @@ class Anomaly(Base):
         Index("anomalies_status_idx", "status"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("uuid_generate_v4()"),
+    )
     invoice_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
     type: Mapped[AnomalyType] = mapped_column(Enum(AnomalyType, name="anomaly_type", native_enum=False), nullable=False)
     severity: Mapped[AnomalySeverity] = mapped_column(Enum(AnomalySeverity, name="anomaly_severity", native_enum=False), nullable=False)

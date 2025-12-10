@@ -13,7 +13,12 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("uuid_generate_v4()"),
+    )
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     business_name: Mapped[str] = mapped_column(String, nullable=False)

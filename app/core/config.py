@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "CostGuard API"
     debug: bool = False
     database_url: str = "sqlite:///./costguard.db"
+    invoice_storage_dir: str = "storage/invoices"
 
     model_config = SettingsConfigDict(
         env_file=".env",
