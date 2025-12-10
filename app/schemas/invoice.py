@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.anomaly import AnomalyRead
+
 
 class InvoiceCreate(BaseModel):
     user_id: UUID
@@ -31,3 +33,13 @@ class InvoiceRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class InvoiceWithAnomalies(InvoiceRead):
+    anomalies: list[AnomalyRead]
+
+
+class InvoiceTimeline(BaseModel):
+    invoice: InvoiceRead
+    anomalies: list[AnomalyRead]
+    vendor_history: list[InvoiceRead]
