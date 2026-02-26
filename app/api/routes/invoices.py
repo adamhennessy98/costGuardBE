@@ -1,17 +1,18 @@
 from datetime import date
-from decimal import Decimal, localcontext
+from decimal import Decimal
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, status
 from pydantic import ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app import models
 from app.api.deps import get_db, get_invoice_extractor, get_invoice_storage
 from app.schemas.anomaly import AnomalyRead, AnomalyUpdate
 from app.schemas.invoice import InvoiceCreate, InvoiceRead, InvoiceTimeline, InvoiceWithAnomalies
+from app.services.anomaly_detector import detect_anomalies
 from app.services.file_storage import InvoiceFileStorage
 from app.models.enums import AnomalySeverity, AnomalyStatus, AnomalyType
 from app.services.invoice_extractor import InvoiceExtractionResult, InvoiceMetadataExtractor
@@ -222,14 +223,6 @@ async def create_invoice(
     if total_amount_value is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invoice total amount is required")
 
-    duplicate_stmt = (
-        select(models.Invoice)
-        .where(models.Invoice.vendor_id == vendor_identifier)
-        .where(models.Invoice.invoice_date == invoice_date_value)
-        .where(models.Invoice.total_amount == total_amount_value)
-    )
-    duplicate_match = db.scalar(duplicate_stmt)
-
     invoice = models.Invoice(
         user_id=payload.user_id,
         vendor_id=vendor_identifier,
@@ -241,74 +234,9 @@ async def create_invoice(
     db.add(invoice)
     db.flush()
 
-    if duplicate_match is not None:
-        anomaly = models.Anomaly(
-            invoice_id=invoice.id,
-            type=AnomalyType.DUPLICATE,
-            severity=AnomalySeverity.MEDIUM,
-            status=AnomalyStatus.UNREVIEWED,
-            reason_text="Potential duplicate invoice: matches vendor, date, and total amount.",
-        )
+    anomalies = detect_anomalies(db, invoice, vendor_identifier, total_amount_value)
+    for anomaly in anomalies:
         db.add(anomaly)
-
-    recent_totals_stmt = (
-        select(models.Invoice.total_amount)
-        .where(models.Invoice.vendor_id == vendor_identifier)
-        .where(models.Invoice.id != invoice.id)
-        .order_by(models.Invoice.invoice_date.desc())
-        .limit(25)
-    )
-    recent_totals_raw = db.scalars(recent_totals_stmt).all()
-    recent_totals: list[Decimal] = []
-    for value in recent_totals_raw:
-        if value is None:
-            continue
-        recent_totals.append(value if isinstance(value, Decimal) else Decimal(str(value)))
-
-    abnormal_total_detected = False
-    average_total: Decimal | None = None
-
-    if recent_totals:
-        average_total = sum(recent_totals) / Decimal(len(recent_totals))
-
-    if average_total is not None:
-        high_threshold = average_total * Decimal("1.5")
-        if total_amount_value >= high_threshold:
-            anomaly = models.Anomaly(
-                invoice_id=invoice.id,
-                type=AnomalyType.ABNORMAL_TOTAL,
-                severity=AnomalySeverity.HIGH,
-                status=AnomalyStatus.UNREVIEWED,
-                reason_text=(
-                    "Invoice total exceeds 150% of recent vendor average "
-                    f"({total_amount_value} vs {average_total.quantize(Decimal('0.01'))})."
-                ),
-            )
-            db.add(anomaly)
-            abnormal_total_detected = True
-
-    if average_total is not None and len(recent_totals) >= 5:
-        with localcontext() as ctx:
-            ctx.prec = 28
-            variance = sum((amount - average_total) ** 2 for amount in recent_totals) / Decimal(len(recent_totals))
-            std_dev = variance.sqrt() if variance > 0 else Decimal("0")
-
-        if std_dev > 0:
-            deviation = (total_amount_value - average_total).copy_abs()
-            if deviation >= std_dev * Decimal("3") and not abnormal_total_detected:
-                direction = "higher" if total_amount_value > average_total else "lower"
-                anomaly = models.Anomaly(
-                    invoice_id=invoice.id,
-                    type=AnomalyType.ABNORMAL_TOTAL,
-                    severity=AnomalySeverity.HIGH,
-                    status=AnomalyStatus.UNREVIEWED,
-                    reason_text=(
-                        f"Invoice total is {direction} than normal for this vendor; deviation "
-                        f"{deviation.quantize(Decimal('0.01'))} vs std dev {std_dev.quantize(Decimal('0.01'))}."
-                    ),
-                )
-                db.add(anomaly)
-                abnormal_total_detected = True
 
     db.commit()
     db.refresh(invoice)
