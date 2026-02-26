@@ -18,9 +18,9 @@ branch_labels = None
 depends_on = None
 
 
-anomaly_type_enum = sa.Enum("PRICE_CREEP", "DUPLICATE", "ABNORMAL_TOTAL", name="anomaly_type")
-anomaly_severity_enum = sa.Enum("LOW", "MEDIUM", "HIGH", name="anomaly_severity")
-anomaly_status_enum = sa.Enum("UNREVIEWED", "VALID", "ISSUE", name="anomaly_status")
+anomaly_type_enum = postgresql.ENUM("PRICE_CREEP", "DUPLICATE", "ABNORMAL_TOTAL", name="anomaly_type", create_type=False)
+anomaly_severity_enum = postgresql.ENUM("LOW", "MEDIUM", "HIGH", name="anomaly_severity", create_type=False)
+anomaly_status_enum = postgresql.ENUM("UNREVIEWED", "VALID", "ISSUE", name="anomaly_status", create_type=False)
 
 
 def upgrade() -> None:
@@ -28,9 +28,10 @@ def upgrade() -> None:
     if bind.dialect.name == "postgresql":
         op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
 
-    anomaly_type_enum.create(op.get_bind(), checkfirst=True)
-    anomaly_severity_enum.create(op.get_bind(), checkfirst=True)
-    anomaly_status_enum.create(op.get_bind(), checkfirst=True)
+    # Create enums explicitly before table creation
+    op.execute("DO $$ BEGIN CREATE TYPE anomaly_type AS ENUM ('PRICE_CREEP', 'DUPLICATE', 'ABNORMAL_TOTAL'); EXCEPTION WHEN duplicate_object THEN null; END $$;")
+    op.execute("DO $$ BEGIN CREATE TYPE anomaly_severity AS ENUM ('LOW', 'MEDIUM', 'HIGH'); EXCEPTION WHEN duplicate_object THEN null; END $$;")
+    op.execute("DO $$ BEGIN CREATE TYPE anomaly_status AS ENUM ('UNREVIEWED', 'VALID', 'ISSUE'); EXCEPTION WHEN duplicate_object THEN null; END $$;")
 
     op.create_table(
         "users",
